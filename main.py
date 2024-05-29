@@ -112,7 +112,12 @@ if __name__ == "__main__":
 
     OpenLDAP = LDAPClient(server_uri, admin_dn, bind_password,base_dn=base_dn)
 
-    
+    server_uri = 'ldap://192.168.232.80'
+    admin_dn = 'uid=admin,cn=users,cn=accounts,dc=sirius,dc=com'
+    base_dn = 'dc=sirius,dc=com'
+    bind_password = 'openldap'
+
+    AldPro = LDAPClient(server_uri, admin_dn, bind_password,base_dn=base_dn)
     # users = OpenLDAP.get_users(get_all="all") 
     # #get_all all|uid
     # for user in users:

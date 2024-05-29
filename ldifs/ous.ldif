@@ -1,0 +1,13 @@
+dn: uid=robert,ou=users,dc=sirius,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: robert
+sn: stryzhak
+uid: robert
+uidNumber: 10003
+gidNumber: 5003
+homeDirectory: /home/robert
+loginShell: /bin/bash
+userPassword: {SSHA}kP+9Xuy6Q/dVM0Zv8wiZgg6fb3Qd2apq
+mail: robert@example.com
