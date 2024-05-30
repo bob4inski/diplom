@@ -1,0 +1,4 @@
+dn: uid=testmigrate,cn=users,cn=accounts,dc=sirius,dc=com
+changetype: modify
+replace: userPassword
+userPassword: {SSHA}ADSO72dkZw8YcuMe7TIxBaoyN0GfzTbT  

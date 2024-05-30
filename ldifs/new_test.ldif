@@ -1,0 +1,13 @@
+dn: uid=testmigrate,cn=users,cn=accounts,dc=sirius,dc=com
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: testmigrate
+sn: testmigrate
+uid: testmigrate
+uidNumber: 11003
+gidNumber: 5013
+homeDirectory: /home/testmigrate
+loginShell: /bin/bash
+userPassword: {SSHA}g79dxbl1spec4+0v2H0zQQ0VAXVH2ro/
+mail: testmigrate@example.com
