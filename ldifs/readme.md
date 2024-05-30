@@ -1,0 +1,1 @@
+ipa user-add testmigrate --first=testmigrate --last=testmigrate --uid=11003 --gid=5013 --home=/home/testmigrate --shell=/bin/bash --email=testmigrate@example.com --setattr=uidnumber=11003 --setattr=gidnumber=5013
