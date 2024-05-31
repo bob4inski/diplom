@@ -7,43 +7,41 @@ class LDAPClient:
         
         self.tarantool_host = tarantool_host
         self.tarantool_port = tarantool_port
-
-        server = Server(server_uri, get_info=ALL)
+        self.user = bind_dn
+        self.password = bind_password
         self.base_dn = base_dn
-
-        Connection(server, user=bind_dn, password=bind_password, auto_bind=True).closed
-       # self.conn.closed
-
-    def whoami(self):
-        self.conn.extend.standard.who_am_i()
-
+        self.server  = Server(server_uri, get_info=ALL)
+    
     def check_if_exist_t(self, uid: str):
-        response = self.t_connection.select(space_name='ald', key=uid)
+        check_connection = tarantool.Connection(host=self.tarantool_host,
+                            port=self.tarantool_port
+                            )
+        response = check_connection.select(space_name='ald', key=uid)
+        check_connection.close
+
         if len(response.data) == 0:
             return False
         elif len(response.data) == 1:
             return True
         
     def add_user_t(self,space: str, uid: str): 
-        self.t_connection = tarantool.Connection(host=self.tarantool_host,
+        t_connection = tarantool.Connection(host=self.tarantool_host,
                             port=self.tarantool_port
                             )
-
-        if self.check_if_exist_t(uid):
-            self.t_connection.close()
+        if self.check_if_exist_t():
+            t_connection.close
             return "user exist"
         else:
             user = (uid,)
-            self.t_connection.space(space).insert(user)
-            self.t_connection.close()
+            t_connection.space(space).insert(user)
+            t_connection.close
             return "user added"
         
-
     def get_users_t(self,space: str):
-        self.t_connection = tarantool.Connection(host=self.tarantool_host,
+        t_connection = tarantool.Connection(host=self.tarantool_host,
                             port=self.tarantool_port
                             )
-        response = self.t_connection.select(space_name=space)
+        response = t_connection.select(space_name=space)
         return response.data
 
     def upload_users_to_tarantool(self,space:str):
@@ -58,82 +56,87 @@ class LDAPClient:
             "all":['uid','uidNumber','cn', 'userPassword'],
             "uid":['uid']
         }
-
-        self.conn.search(
+        connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
+        connection.search(
             search_base=search_base, 
             search_filter='(objectClass=inetOrgPerson)', #inetOrgPerson posixAccount
             search_scope=SUBTREE, 
             attributes=attributes[get_all])
-
-        return self.conn.entries
+        
+        connection.closed
+        return connection.entries
     
     def get_groups(self, search_base=""):
         if not search_base:
             search_base = self.base_dn
-
-        self.conn.search(
+        connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
+        connection.search(
             search_base=search_base, 
             search_filter='(objectClass=posixGroup)', 
             search_scope=SUBTREE,
             attributes=['cn', 'memberUid'])
-        return self.conn.entries
+        connection.closed
+        return connection.entries
     
     def get_users_in_group(self, group_dn):
-        self.conn.search(
+        connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
+        connection.search(
             search_base=group_dn,
             search_filter='(objectClass=posixGroup)',
             search_scope=SUBTREE,
             attributes=['memberUid'])
-        members = self.conn.entries[0].memberUid if self.conn.entries else []
+        members = connection.entries[0].memberUid if connection.entries else []
+        connection.closed
         return [member for member in members]
 
-    def add_user(self, user_dn, attributes):
+    def add_user(self, uid, attributes: dict):
         """
         Add a new user to LDAP.
         user_dn: The distinguished name of the new user.
         attributes: A dictionary of attributes for the user.
         """
-        # todo
-        # name = "amogus"
-        # new_user_dn = f"uid={name},ou=users,dc=sirius,dc=com"
-        # new_user_attributes = {
-        #     'objectClass': ['inetOrgPerson', 'top'],
-        #     'uid': name,
-        #     'cn': name,
-        #     'sn': name,
-        #    # 'uidNumber': 11000,
-        #     'userPassword': '{SSHA}PIIGPPpA4gtmxIchvfemwrBgQANEB+Yu'
-        # }
-
-        # add check_if_exist
-        if self.conn.add(user_dn, attributes=attributes):
-            print(f"User {user_dn} added successfully.")
+        connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
+        user_dn = f"uid={uid},ou=users,dc=sirius,dc=com"
+    
+        if self.check_if_exist_t(uid):
+            print("user exist")
+            return False
         else:
-            print(f"Failed to add user {user_dn}.", self.conn.result)
+            connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
+            user_dn = f"uid={uid},ou=users,dc=sirius,dc=com"
+
+            if connection.add(user_dn, attributes=attributes):
+                print(f"User {user_dn} added successfully.")
+                connection.closed
+                return True
+            else:
+                print(f"Failed to add user {user_dn}.", connection.result)
+                connection.closed
+                return False
             
     # New method to add a group
-    def add_group(self, group_dn, attributes):
-        """
-        Add a new group to LDAP.
-        group_dn: The distinguished name of the new group.
-        attributes: A dictionary of attributes for the group.
-        """
-        if self.conn.add(group_dn, attributes=attributes):
-            print(f"Group {group_dn} added successfully.")
-        else:
-            print(f"Failed to add group {group_dn}.", self.conn.result)
-
-    # New method to add a user to a group
-    def add_user_to_group(self, group_dn, user_dn):
-        """
-        Add a user to a group.
-        group_dn: The distinguished name of the group.
-        user_dn: The distinguished name of the user to be added.
-        """
-        if self.conn.modify(group_dn, {'memberUid': [MODIFY_ADD, [user_dn]]}):
-            print(f"User {user_dn} added to group {group_dn} successfully.")
-        else:
-            print(f"Failed to add user {user_dn} to group {group_dn}.", self.conn.result)
+    # def add_group(self, group_dn, attributes):
+    #     """
+    #     Add a new group to LDAP.
+    #     group_dn: The distinguished name of the new group.
+    #     attributes: A dictionary of attributes for the group.
+    #     """
+    #     if self.conn.add(group_dn, attributes=attributes):
+    #         print(f"Group {group_dn} added successfully.")
+    #     else:
+    #         print(f"Failed to add group {group_dn}.", self.conn.result)
+        
+    # # New method to add a user to a group
+    # def add_user_to_group(self, group_dn, user_dn):
+    #     """
+    #     Add a user to a group.
+    #     group_dn: The distinguished name of the group.
+    #     user_dn: The distinguished name of the user to be added.
+    #     """
+    #     if self.conn.modify(group_dn, {'memberUid': [MODIFY_ADD, [user_dn]]}):
+    #         print(f"User {user_dn} added to group {group_dn} successfully.")
+    #     else:
+    #         print(f"Failed to add user {user_dn} to group {group_dn}.", self.conn.result)
     
     #todo def check_if_in_group
     
@@ -144,8 +147,9 @@ class LDAPClient:
         cn: The common name of the entry to check.
         """
         search_filter = f'(cn={cn})'
-        self.conn.search(search_base=self.base_dn, search_filter=search_filter, search_scope=SUBTREE, attributes=['cn'])
-        return bool(self.conn.entries)
+        connection = Connection(self.server, user=self.bind_dn, password=self.bind_password, auto_bind=True)
+        connection.search(search_base=self.base_dn, search_filter=search_filter, search_scope=SUBTREE, attributes=['cn'])
+        return bool(connection.entries)
 
 if __name__ == "__main__":
     server_uri = 'ldap://185.241.195.163'
@@ -158,10 +162,22 @@ if __name__ == "__main__":
                           tarantool_host=t_host,tarantool_port=t_port)
 
    # OpenLDAP.upload_users_to_tarantool(space="ald")
-    print("get_users")
-    #a = OpenLDAP.get_users_t(space="ald")
-    a = OpenLDAP.get_users()
+    a = OpenLDAP.get_users_t(space="ald")
+   # a = OpenLDAP.get_users_t()
     print(a)
+    user_attributes = {
+        'objectClass': ['inetOrgPerson', 'posixAccount', 'top'],
+        'uid': 'new_user',
+        'cn': 'New User',
+        'sn': 'User',
+        'uidNumber': '11011',
+        'gidNumber': '11011',
+        'homeDirectory': '/home/new_user',
+        'userPassword': '{SSHA}PIIGPPpA4gtmxIchvfemwrBgQANEB+Yu',
+        'mail': 'new_user@example.com',
+        'loginShell': '/bin/bash'
+    }
+    print(OpenLDAP.add_user(uid="adad", attributes=user_attributes))
     # server_uri = 'ldap://192.168.232.80'
     # admin_dn = 'uid=admin,cn=users,cn=accounts,dc=sirius,dc=com'
     # base_dn = 'dc=sirius,dc=com'
