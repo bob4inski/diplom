@@ -1,8 +1,6 @@
 from ldap3 import Server, Connection, ALL, SUBTREE
 from  python_freeipa import ClientMeta
-import subprocess
 import tarantool
-import json
 
 class Migration:
     def __init__(self, server_uri, bind_dn, bind_password, base_dn: str, 
@@ -47,58 +45,75 @@ class Migration:
                             port=self.tarantool_port
                             )
         response = t_connection.select(space_name=space)
-        return response.data
+        return  [item for sublist in response.data for item in sublist]
 
     def upload_users_to_tarantool(self,space:str):
-        users = self.get_users(get_all="uid")
-        for user in users:
-            if not(self.check_user_exist_t(uid=str(user.uid))):
-                self.add_user_t(space=space,uid=str(user.uid))
+        """
+        Upload uids into Tarantool
+        """
+        uids = self.get_uids_freeipa()
+        for uid in uids:
+            if not(self.check_user_exist_t(uid=uid)):
+                self.add_user_t(space=space,uid=uid)
         
-    def get_users(self, search_base="",get_all="all"):
+        print(f"existing users: {self.get_users_t(space="ald")}")
+
+    def get_uids_freeipa(self,):
+        freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
+        freeipa.login('admin','BibaBobaidi0ts')
+        users = freeipa.user_find()
+        freeipa.logout()
+        # user = client.user_add('test3', 'John', 'Doe', 'John Doe', o_preferredlanguage='EN')
+        uids = [user['uid'][0] for user in users['result'] if 'uid' in user]
+        return uids
+    
+    def get_users_openldap(self, search_base=""):
+        """
+        Get users from OpenLDAP
+        """
         if not search_base:
             search_base = self.base_dn
-        attributes = {
-            "all":['uid','uidNumber','cn','sn', 'userPassword',"loginshell","homedirectory","mail"],
-            "uid":['uid']
-        }
-        connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
-        connection.search(
+        attributes = ['uid','uidNumber','cn','sn', 'userPassword',"loginshell","homedirectory","mail"]
+       
+        openldap_connection = Connection(self.server, user=self.user, password=self.password, auto_bind=True)
+        openldap_connection.search(
             search_base=search_base, 
             search_filter='(objectClass=inetOrgPerson)', #inetOrgPerson posixAccount
             search_scope=SUBTREE, 
-            attributes=attributes[get_all])
+            attributes=attributes)
         
-        connection.closed
-        return connection.entries
+        openldap_connection.closed
+        return openldap_connection.entries
     
-    def add_user(self, user: Connection.user):
+    def add_user(self, user: Connection.entries):
         """
         Add a new user to FreeIpa
-        attributes: A dictionary of attributes for the user.
         """
-        connection = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
-        connection.login('admin','BibaBobaidi0ts')
+        freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
+        freeipa.login('admin','BibaBobaidi0ts')
  
-        if self.check_if_exist_t(str(user.uid)):
-            print("user exist")
+        if self.check_user_exist_t(str(user.uid)):
+            print(f"user with uid={str(user.uid)}exist")
             return False
         else:
             try:
-                connection.user_add(
-                    a_uid=attributes['uid'],
-                    o_givenname=attributes['cn'],
-                    o_sn=attributes['sn'],
-                    o_cn=attributes['cn'],
-                    o_uidnumber=attributes['uidNumber'],
+                freeipa.user_add(
+                    a_uid=str(user.uid),
+                    o_givenname=str(user.cn),
+                    o_sn=str(user.sn),
+                    o_cn=str(user.cn),
+                    o_uidnumber=str(user.uidNumber),
                     o_loginshell="/bin/bash",
-                    o_homedirectory=f"/home/{attributes['uid']}",
-                    o_mail=attributes['mail'],
-                    o_setattr=attributes['userPassword']
+                    o_homedirectory=f"/home/{str(user.uid)}",
+                    o_mail=str(user.mail),
+                    o_setattr=f"userPassword={str(user.userPassword)}"
                 )
-
+                print(f"user with uid={str(user.uid)} added")
+                freeipa.logout()
+                return True
             except Exception as Ex:
                 print (Ex)
+                freeipa.logout()
                 return False
  
 
@@ -120,6 +135,9 @@ if __name__ == "__main__":
                           ald_host=ald_host,ald_user=ald_user, ald_password=ald_password)
 
     migration.upload_users_to_tarantool(space="ald")
-    users = migration.get_users(get_all="all") 
-    for user in users:
-        migration.add_user(user)
+    users = migration.get_users_openldap() 
+    uids = [str(user.uid) for user in users]
+    # print(f"users from OpenLDAP: {uids} " )
+    # print("start migration")
+    # for user in users:
+    #     migration.add_user(user)
