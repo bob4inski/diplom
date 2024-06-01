@@ -1,0 +1,7 @@
+test10@ald:~$ klist 
+Ticket cache: KEYRING:persistent:22022:krb_ccache_TCACvgJ
+Default principal: test10@SIRIUS.COM
+
+Valid starting       Expires              Service principal
+01.06.2024 19:39:51  02.06.2024 19:39:51  krbtgt/SIRIUS.COM@SIRIUS.COM
+test10@ald:~$ 
