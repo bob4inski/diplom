@@ -1,24 +1,20 @@
-from ldap3 import Server, Connection, ALL
+from  python_freeipa import ClientMeta
 
-# LDAP server and admin credentials
-ldap_server = 'ldap://185.241.195.163'  # Replace with your LDAP server
-ldap_admin_dn = 'cn=admin,dc=sirius,dc=com'  # Replace with your admin DN
-ldap_admin_password = 'openldap'  # Replace with your admin password
+client = ClientMeta(host='ald.sirius.com',verify_ssl=False,dns_discovery=True)
+client.login('admin','BibaBobaidi0ts')
+users = client.user_add(
+    a_uid="test2",
+    o_uidnumber="22002",
+    o_cn="test2",
+    o_sn="test2",
+    o_givenname="test2",
+    # o_gidnumber="22001",
+    o_loginshell="/bin/bash",
+    o_homedirectory="/home/fromp",
+    # o_mail="fromp@sirius.com",
+    o_setattr="userPassword={SSHA}H2G95QW4iPRnRauBuzNSpawi2H4pKJB+"
+)
+# user = client.user_add('test3', 'John', 'Doe', 'John Doe', o_preferredlanguage='EN')
 
-# Connect to the LDAP server
-server = Server(ldap_server, get_info=ALL)
-conn = Connection(server, ldap_admin_dn, ldap_admin_password, auto_bind=True)
+print(users)
 
-# Perform the LDAP search
-search_base = 'dc=sirius,dc=com'
-search_filter = '(objectClass=posixAccount)'
-search_attributes = ['cn','uid', 'userPassword']
-
-conn.search(search_base, search_filter, attributes=search_attributes)
-
-# Print the results
-for entry in conn.entries:
-    print(entry)
-
-# Disconnect from the LDAP server
-conn.unbind()
