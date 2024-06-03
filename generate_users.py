@@ -26,5 +26,5 @@ for i in range(10000):
     current_uid_number = starting_uid_number + i
     current_gid_number = starting_gid_number + i
     # Substitute into the LDIF template
-    user_ldif_entry = ldif_template.format(uid=i, uid_number=current_uid_number, user_password=user_password,gid_number=current_gid_number)
+    user_ldif_entry = ldif_template.format(uid=100+i, uid_number=current_uid_number, user_password=user_password,gid_number=current_gid_number)
     f.write(user_ldif_entry)
