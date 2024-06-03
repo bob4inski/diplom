@@ -1,16 +1,15 @@
 from ldap3 import Server, Connection, ALL, SUBTREE
+from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures as kfc
 from  python_freeipa import ClientMeta
 import time
 import logging
-import tarantool
+
 
 class Migration:
     def __init__(self, server_uri, bind_dn, bind_password, base_dn: str, 
-                 tarantool_host: str,tarantool_port: int,
                  ald_host: str, ald_user: str, ald_password: str):
         
-        self.tarantool_host = tarantool_host
-        self.tarantool_port = tarantool_port
         self.user = bind_dn
         self.password = bind_password
         self.base_dn = base_dn
@@ -20,51 +19,6 @@ class Migration:
 
         self.server  = Server(server_uri, get_info=ALL)
     
-    def check_user_exist_t(self, uid: str):
-        check_connection = tarantool.Connection(host=self.tarantool_host,
-                            port=self.tarantool_port
-                            )
-        response = check_connection.select(space_name='ald', key=uid)
-        check_connection.close
-
-        if len(response.data) == 0:
-            return False
-        elif len(response.data) == 1:
-            return True
-        
-    def add_user_t(self,space: str, uid: str): 
-        t_connection = tarantool.Connection(host=self.tarantool_host,
-                            port=self.tarantool_port
-                            )
-        
-        response = t_connection.select(space_name='ald', key=uid)
-
-        if len(response.data) == 0:
-            return False
-        elif len(response.data) == 1:
-            return True
-        user = (uid,)
-        t_connection.space(space).insert(user)
-        t_connection.close
-        
-    def get_users_t(self,space: str):
-        t_connection = tarantool.Connection(host=self.tarantool_host,
-                            port=self.tarantool_port
-                            )
-        response = t_connection.select(space_name=space)
-        return  [item for sublist in response.data for item in sublist]
-
-    def upload_users_to_tarantool(self,space:str):
-        """
-        Upload uids into Tarantool
-        """
-        logging.info("get_uids_freeipa started")
-        uids = self.get_uids_freeipa()
-        logging.info("get_uids_freeipa ended")
-        for uid in uids:
-            self.add_user_t(space=space,uid=uid)
-        print(f"existing users: {self.get_users_t(space="ald")}")
-
     def get_uids_freeipa(self,):
         freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
         freeipa.login('admin','BibaBobaidi0ts')
@@ -102,7 +56,7 @@ class Migration:
         #     logging.info(f"user with uid={str(user.uid)} exist; execution time: {(time.time() - start_time)}")
         #     return False
         # else:
-        if user.uid in self.uids_dict:
+        if str(user.uid) in self.uids_dict:
             logging.info(f"user with uid={str(user.uid)} exist; execution time: {(time.time() - start_time)}")
             return False
         else:
@@ -122,7 +76,7 @@ class Migration:
                     o_setattr=f"userPassword={str(user.userPassword)}"
                 )
                 logging.info(f"user with uid={str(user.uid)} added; execution time: {(time.time() - start_time)} ")
-                self.uids_dict[user.uid] = True
+                self.uids_dict[str(user.uid)] = True
                 freeipa.logout()
                 return True
             except Exception as Ex:
@@ -136,9 +90,6 @@ if __name__ == "__main__":
     base_dn = 'dc=sirius,dc=com'
     bind_password = 'openldap'
 
-    t_host = '185.241.195.163'
-    t_port = 3301
-
     ald_host = "ald.sirius.com"
     ald_user = "admin"
     ald_password = "BibaBobaidi0ts"
@@ -150,14 +101,22 @@ if __name__ == "__main__":
                     level=logging.INFO)
 
     logging.info("Start migration")
-
     migration = Migration(server_uri, admin_dn, bind_password,base_dn=base_dn,
-                          tarantool_host=t_host,tarantool_port=t_port,
                           ald_host=ald_host,ald_user=ald_user, ald_password=ald_password)
 
-    # migration.upload_users_to_tarantool(space="ald")
     users = migration.get_users_openldap()
     migration.get_uids_freeipa()
     logging.info(f"got users from OpenLDAP, starting migrate")
     for user in users:
         migration.add_user(user)
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(migration.add_user, user) for user in users]
+    # If you need to process the results or catch exceptions, you can iterate over futures
+    for future in kfc.as_completed(futures):
+        try:
+            result = future.result()
+            # Handle the result (maybe logging or something else)
+        except Exception as e:
+            # Handle the exception, e.g., logging
+            logging.error(f"Migration error: {e}")
