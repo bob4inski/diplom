@@ -85,16 +85,16 @@ class Migration:
  
 
 if __name__ == "__main__":
-    server_uri = 'ldap://185.241.195.163'
+    server_uri = 'ldap://ip'
     admin_dn = 'cn=admin,dc=sirius,dc=com'
     base_dn = 'dc=sirius,dc=com'
-    bind_password = 'openldap'
+    bind_password = 'super secret paswword'
 
     ald_host = "ald.sirius.com"
     ald_user = "admin"
-    ald_password = "BibaBobaidi0ts"
+    ald_password = "super secret paswword"
 
-    logging.basicConfig(filename="migration.log",
+    logging.basicConfig(filename="neww-migration.log",
                     filemode='a',
                     format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                     datefmt='%H:%M:%S',
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     for user in users:
         migration.add_user(user)
 
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=100) as executor:
         futures = [executor.submit(migration.add_user, user) for user in users]
     # If you need to process the results or catch exceptions, you can iterate over futures
     for future in kfc.as_completed(futures):
