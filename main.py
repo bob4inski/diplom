@@ -1,5 +1,7 @@
 from ldap3 import Server, Connection, ALL, SUBTREE
 from  python_freeipa import ClientMeta
+import time
+import logging
 import tarantool
 
 class Migration:
@@ -34,7 +36,13 @@ class Migration:
         t_connection = tarantool.Connection(host=self.tarantool_host,
                             port=self.tarantool_port
                             )
+        
+        response = t_connection.select(space_name='ald', key=uid)
 
+        if len(response.data) == 0:
+            return False
+        elif len(response.data) == 1:
+            return True
         user = (uid,)
         t_connection.space(space).insert(user)
         t_connection.close
@@ -50,11 +58,11 @@ class Migration:
         """
         Upload uids into Tarantool
         """
+        logging.info("get_uids_freeipa started")
         uids = self.get_uids_freeipa()
+        logging.info("get_uids_freeipa ended")
         for uid in uids:
-            if not(self.check_user_exist_t(uid=uid)):
-                self.add_user_t(space=space,uid=uid)
-        
+            self.add_user_t(space=space,uid=uid)
         print(f"existing users: {self.get_users_t(space="ald")}")
 
     def get_uids_freeipa(self,):
@@ -63,7 +71,8 @@ class Migration:
         users = freeipa.user_find()
         freeipa.logout()
         uids = [user['uid'][0] for user in users['result'] if 'uid' in user]
-        return uids
+        self.uids_dict = {user['uid'][0]: True for user in users['result'] if 'uid' in user}
+        #return uids
     
     def get_users_openldap(self, search_base=""):
         """
@@ -87,14 +96,20 @@ class Migration:
         """
         Add a new user to FreeIpa
         """
-        freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
-        freeipa.login('admin','BibaBobaidi0ts')
- 
-        if self.check_user_exist_t(str(user.uid)):
-            print(f"user with uid={str(user.uid)}exist")
+        start_time = time.time()
+        
+        # if self.check_user_exist_t(str(user.uid)):
+        #     logging.info(f"user with uid={str(user.uid)} exist; execution time: {(time.time() - start_time)}")
+        #     return False
+        # else:
+        if user.uid in self.uids_dict:
+            logging.info(f"user with uid={str(user.uid)} exist; execution time: {(time.time() - start_time)}")
             return False
         else:
             try:
+                freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
+                freeipa.login('admin','BibaBobaidi0ts')
+
                 freeipa.user_add(
                     a_uid=str(user.uid),
                     o_givenname=str(user.cn),
@@ -106,12 +121,12 @@ class Migration:
                     o_mail=str(user.mail),
                     o_setattr=f"userPassword={str(user.userPassword)}"
                 )
-                print(f"user with uid={str(user.uid)} added")
+                logging.info(f"user with uid={str(user.uid)} added; execution time: {(time.time() - start_time)} ")
+                self.uids_dict[user.uid] = True
                 freeipa.logout()
                 return True
             except Exception as Ex:
-                print (Ex)
-                freeipa.logout()
+                logging.error(f"error {Ex}")
                 return False
  
 
@@ -127,15 +142,22 @@ if __name__ == "__main__":
     ald_host = "ald.sirius.com"
     ald_user = "admin"
     ald_password = "BibaBobaidi0ts"
-    
+
+    logging.basicConfig(filename="migration.log",
+                    filemode='a',
+                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.INFO)
+
+    logging.info("Start migration")
+
     migration = Migration(server_uri, admin_dn, bind_password,base_dn=base_dn,
                           tarantool_host=t_host,tarantool_port=t_port,
                           ald_host=ald_host,ald_user=ald_user, ald_password=ald_password)
 
-    migration.upload_users_to_tarantool(space="ald")
-    users = migration.get_users_openldap() 
-    uids = [str(user.uid) for user in users]
-    print(f"users from OpenLDAP: {uids} " )
-    print("start migration")
+    # migration.upload_users_to_tarantool(space="ald")
+    users = migration.get_users_openldap()
+    migration.get_uids_freeipa()
+    logging.info(f"got users from OpenLDAP, starting migrate")
     for user in users:
         migration.add_user(user)
