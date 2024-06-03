@@ -1,3 +1,4 @@
+```bash
 root@ald:~# ldapadd -f rbert.kdif -W -D "uid=admin,cn=users,cn=accounts,dc=sirius,dc=com"
 Enter LDAP Password: 
 adding new entry "uid=robert.sa,cn=users,cn=accounts,dc=sirius,dc=com"
@@ -26,38 +27,13 @@ root@ald:~# ipa config-mod --enable-migration=true
   Главные IPA-серверы: ald.sirius.com
   Главный IPA-сервер с поддержкой PKINIT: ald.sirius.com
   DNS-серверы IPA: ald.sirius.com
-root@ald:~# ldapadd -f rbert.kdif -W -D "uid=admin,cn=users,cn=accounts,dc=sirius,dc=com"
+root@ald:~# ldapadd -f user.ldif -W -D "uid=admin,cn=users,cn=accounts,dc=sirius,dc=com"
 Enter LDAP Password: 
 adding new entry "uid=robert.sa,cn=users,cn=accounts,dc=sirius,dc=com"
+```
+```bash
+ipa user-add testmigrate --first=testmigrate --last=testmigrate --uid=11003 --gid=5013 --home=/home/testmigrate --shell=/bin/bash --email=testmigrate@example.com --setattr=uidnumber=11003 --setattr=gidnumber=5013 --setattr=userPassword={SSHA}H2G95QW4iPRnRauBuzNSpawi2H4pKJB+
 
-root@ald:~# ipa user-add testmigrate --first=testmigrate --last=testmigrate --uid=11003 --gid=5013 --home=/home/testmigrate --shell=/bin/bash --email=testmigrate@example.com --setattr=uidnumber=11003 --setattr=gidnumber=5013 --setattr=userPassword=ipa user-add testmigrate --first=testmigrate --last=testmigrate --uid=11003 --gid=5013 --home=/home/testmigrate --shell=/bin/bash --email=testmigrate@example.com --setattr=uidnumber=11003 --setattr=gidnumber=5013^C
-root@ald:~# 
-root@ald:~# dn: uid=robert.sa,cn=users,cn=accounts,dc=sirius,dc=com
--bash: dn:: команда не найдена
-root@ald:~# objectClass: inetOrgPerson
--bash: objectClass:: команда не найдена
-root@ald:~# objectClass: posixAccount
--bash: objectClass:: команда не найдена
-root@ald:~# objectClass: shadowAccount
--bash: objectClass:: команда не найдена
-root@ald:~# cn: robert.sa
--bash: cn:: команда не найдена
-root@ald:~# sn: stryzhak
--bash: sn:: команда не найдена
-root@ald:~# uid: robert.sa
--bash: uid:: команда не найдена
-root@ald:~# uidNumber: 11011
--bash: uidNumber:: команда не найдена
-root@ald:~# gidNumber: 51013
--bash: gidNumber:: команда не найдена
-root@ald:~# homeDirectory: /home/robert.sa
--bash: homeDirectory:: команда не найдена
-root@ald:~# loginShell: /bin/bash
--bash: loginShell:: команда не найдена
-root@ald:~# userPassword: {SSHA}H2G95QW4iPRnRauBuzNSpawi2H4pKJB+
--bash: userPassword:: команда не найдена
-root@ald:~# mail: robert.sa@example.com^C
-root@ald:~# ipa user-add testmigrate --first=testmigrate --last=testmigrate --uid=11003 --gid=5013 --home=/home/testmigrate --shell=/bin/bash --email=testmigrate@example.com --setattr=uidnumber=11003 --setattr=gidnumber=5013 --setattr=userPassword={SSHA}H2G95QW4iPRnRauBuzNSpawi2H4pKJB+
 -----------------------------------
 Добавлен пользователь "testmigrate"
 -----------------------------------

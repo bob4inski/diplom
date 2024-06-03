@@ -39,7 +39,6 @@ class Migration:
         t_connection.space(space).insert(user)
         t_connection.close
         
-        
     def get_users_t(self,space: str):
         t_connection = tarantool.Connection(host=self.tarantool_host,
                             port=self.tarantool_port
@@ -63,7 +62,6 @@ class Migration:
         freeipa.login('admin','BibaBobaidi0ts')
         users = freeipa.user_find()
         freeipa.logout()
-        # user = client.user_add('test3', 'John', 'Doe', 'John Doe', o_preferredlanguage='EN')
         uids = [user['uid'][0] for user in users['result'] if 'uid' in user]
         return uids
     
@@ -137,7 +135,7 @@ if __name__ == "__main__":
     migration.upload_users_to_tarantool(space="ald")
     users = migration.get_users_openldap() 
     uids = [str(user.uid) for user in users]
-    # print(f"users from OpenLDAP: {uids} " )
-    # print("start migration")
-    # for user in users:
-    #     migration.add_user(user)
+    print(f"users from OpenLDAP: {uids} " )
+    print("start migration")
+    for user in users:
+        migration.add_user(user)

@@ -7,3 +7,10 @@ to-do
   - [ ] Добавить атрибуты пользователей
 - [ ] Получить Компьютеры
 - [ ] Получить Группы
+
+
+```lua
+s = box.schema.space.create('ald')
+s:format({ {name = 'uid', type = 'string'}})
+s:create_index('primary', { type = 'tree', parts = {'uid'}})
+```
