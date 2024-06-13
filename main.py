@@ -16,17 +16,27 @@ class Migration:
         self.ald_host = ald_host
         self.ald_user = ald_user
         self.ald_password = ald_password
-
+        
         self.server  = Server(server_uri, get_info=ALL)
-    
+
+    def check_uid_ipa(self,uid):
+        freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
+        freeipa.login('admin','BibaBobaidi0ts')
+        user = freeipa.user_find(o_uid=uid)  
+        freeipa.logout()
+        if user['result']:
+            return True
+        else:
+            return False 
+      
     def get_uids_freeipa(self,):
         freeipa = ClientMeta(host=self.ald_host,verify_ssl=False,dns_discovery=True)
         freeipa.login('admin','BibaBobaidi0ts')
         users = freeipa.user_find()
         freeipa.logout()
-        uids = [user['uid'][0] for user in users['result'] if 'uid' in user]
+        #uids = [user['uid'][0] for user in users['result'] if 'uid' in user]
         self.uids_dict = {user['uid'][0]: True for user in users['result'] if 'uid' in user}
-        #return uids
+
     
     def get_users_openldap(self, search_base=""):
         """
@@ -85,16 +95,16 @@ class Migration:
  
 
 if __name__ == "__main__":
-    server_uri = 'ldap://ip'
+    server_uri = 'ldap://185.241.195.163'
     admin_dn = 'cn=admin,dc=sirius,dc=com'
     base_dn = 'dc=sirius,dc=com'
-    bind_password = 'super secret paswword'
+    bind_password = 'openldap'
 
     ald_host = "ald.sirius.com"
     ald_user = "admin"
-    ald_password = "super secret paswword"
+    ald_password = "BibaBobaidi0ts"
 
-    logging.basicConfig(filename="neww-migration.log",
+    logging.basicConfig(filename="reverse-migration.log",
                     filemode='a',
                     format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                     datefmt='%H:%M:%S',
@@ -104,14 +114,15 @@ if __name__ == "__main__":
     migration = Migration(server_uri, admin_dn, bind_password,base_dn=base_dn,
                           ald_host=ald_host,ald_user=ald_user, ald_password=ald_password)
 
-    users = migration.get_users_openldap()
+    
     migration.get_uids_freeipa()
-    logging.info(f"got users from OpenLDAP, starting migrate")
-    for user in users:
-        migration.add_user(user)
+    users = migration.get_users_openldap()
+    # logging.info(f"got users from OpenLDAP, starting migrate")
+    # for user in users:
+    #     migration.add_user(user)
 
-    with ThreadPoolExecutor(max_workers=100) as executor:
-        futures = [executor.submit(migration.add_user, user) for user in users]
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(migration.add_user, user) for user in users[::-1]]
     # If you need to process the results or catch exceptions, you can iterate over futures
     for future in kfc.as_completed(futures):
         try:
